@@ -4,6 +4,28 @@ import {useState, useEffect, useRef} from "react";
 import {createFFmpeg} from '@ffmpeg/ffmpeg';
 
 
+function find(items, value) {
+    const n = items.length;
+    for (let i = 0; i < n; ++i) {
+        if (items[i] === value) {
+            return i;
+        }
+    }
+    return n;
+}
+
+
+function findIfAdjacent(items, pred) {
+    const n = items.length;
+    for (let i = 1; i < n; ++i) {
+        if (pred(items[i-1], items[i])) {
+            return i - 1;
+        }
+    }
+    return n;
+}
+
+
 function findNonEqual(items, value) {
     const n = items.length;
     for (let i = 0; i < n; ++i) {
@@ -177,7 +199,7 @@ class Syscalls {
         if (fp === undefined) return;
         let buffer = await fp.arrayBuffer(); 
         let data = new Uint8Array(buffer);
-        this.ffmpeg.current.FS("writeFile", pathJoin(this.pwd.path, fp.name.replace(" ", "_")), data);
+        this.ffmpeg.current.FS("writeFile", pathJoin(this.pwd.path, fp.name.replaceAll(" ", "_")), data);
     }
 };
 
@@ -269,6 +291,17 @@ async function commandFfmpeg(syscalls, command) {
     if (!commandItems.includes("-nostdin")) {
         commandItems.push("-nostdin");
     }
+
+    let inputIndex = find(commandItems, "-i");
+    if (inputIndex + 1 < commandItems.length) {
+        commandItems[inputIndex + 1] = pathJoin(syscalls.pwd.path, commandItems[inputIndex + 1]);
+    }
+
+    let outputIndex = findIfAdjacent(commandItems, (x, y) => !x.startsWith("-") && !y.startsWith("-"));
+    if (outputIndex !== commandItems.length) {
+        commandItems[outputIndex + 1] = pathJoin(syscalls.pwd.path, commandItems[outputIndex + 1]);
+    }
+    console.log(commandItems);
 
     syscalls.start();
     try {
